@@ -7,6 +7,7 @@ depoly.py — Streamlit main app
 import streamlit as st
 import pandas as pd
 import networkx as nx
+from io import StringIO
 import plotly.graph_objects as go
 import plotly.express as px
 from itertools import combinations
@@ -80,7 +81,7 @@ def load_data(path="WA_Fn-UseC_-HR-Employee-Attrition.csv"):
 
 @st.cache_data(show_spinner="กำลังสร้าง network graph... (ใช้เวลาสักครู่)")
 def build_graph_cached(df_json):
-    df = pd.read_json(df_json)
+    df = pd.read_json(StringIO(df_json))
     G = nx.Graph()
     for _, row in df.iterrows():
         G.add_node(int(row["EmployeeNumber"]),
@@ -100,7 +101,7 @@ def build_graph_cached(df_json):
 
 @st.cache_data(show_spinner="คำนวณ metrics...")
 def compute_metrics(df_json):
-    df = pd.read_json(df_json)
+    df = pd.read_json(StringIO(df_json))
     G = build_graph_cached(df_json)
 
     deg  = nx.degree_centrality(G)
