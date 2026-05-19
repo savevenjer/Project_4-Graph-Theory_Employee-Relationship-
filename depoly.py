@@ -1,10 +1,3 @@
-"""
-app.py
-======
-ONA Dashboard — Organizational Network Analysis
-รัน: streamlit run app.py
-"""
-
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -320,7 +313,6 @@ def run_simulation(G, metric_df, remove_node: int) -> dict:
 # ─── Business Recommendation ─────────────────────────────────────────────────────
 def get_recommendation(row: pd.Series) -> dict:
     score = row["OrgResilienceScore"]
-    attrition = row["Attrition"] == 1
 
     if score >= 0.60:
         return {
@@ -372,19 +364,16 @@ def export_pdf(metric_df: pd.DataFrame) -> bytes:
         styles = getSampleStyleSheet()
         story  = []
 
-        # Title
         title_style = ParagraphStyle("title", parent=styles["Heading1"],
                                      fontSize=16, spaceAfter=6)
         story.append(Paragraph("ONA Report — Organizational Risk Assessment", title_style))
         story.append(Paragraph("Organizational Network Analysis | IBM HR Dataset", styles["Normal"]))
         story.append(Spacer(1, 0.5*cm))
 
-        # Summary
         high_risk = len(metric_df[metric_df["OrgResilienceScore"] >= 0.40])
         story.append(Paragraph(f"พนักงานทั้งหมด: {len(metric_df)} คน | ความเสี่ยงสูง: {high_risk} คน", styles["Normal"]))
         story.append(Spacer(1, 0.4*cm))
 
-        # Table
         story.append(Paragraph("Top 20 — Org Resilience Score สูงสุด", styles["Heading2"]))
         story.append(Spacer(1, 0.2*cm))
 
@@ -422,7 +411,6 @@ def export_pdf(metric_df: pd.DataFrame) -> bytes:
         return buffer.getvalue()
 
     except ImportError:
-        # ถ้าไม่มี reportlab ให้ export เป็น CSV แทน
         csv_buf = io.StringIO()
         metric_df.nlargest(20, "OrgResilienceScore").to_csv(csv_buf, index=False)
         return csv_buf.getvalue().encode("utf-8")
@@ -440,6 +428,8 @@ def main():
         st.divider()
 
         st.markdown("**🎚️ ปรับน้ำหนักความสัมพันธ์**")
+        # FIX 2: เพิ่ม caption บอกว่าค่า default ใช้ได้เลย ไม่ต้องแตะก็ได้
+        st.caption("✅ ค่าเริ่มต้นใช้งานได้เลย ไม่จำเป็นต้องปรับ")
         w_dept   = st.slider("แผนกเดียวกัน",      0.0, 1.0, 0.50, 0.05)
         w_level  = st.slider("ระดับงานใกล้กัน",   0.0, 1.0, 0.25, 0.05)
         w_role   = st.slider("ตำแหน่งเดียวกัน",   0.0, 1.0, 0.15, 0.05)
@@ -467,8 +457,8 @@ def main():
     st.markdown("## 🕸️ Organizational Network Analysis")
     st.caption("IBM HR Analytics · Graph Theory · Risk Assessment")
 
-    # ── Onboarding Guide ──
-    with st.expander("📖 วิธีใช้งาน Dashboard — คลิกอ่าน", expanded=False):
+    # FIX 1: เปิด expander ทิ้งไว้เลยตอน first load (expanded=True)
+    with st.expander("📖 วิธีใช้งาน Dashboard — คลิกเพื่อปิด", expanded=True):
         st.markdown("""
         <div class="onboard-step">
             <div class="step-num">1</div>
@@ -476,7 +466,7 @@ def main():
         </div>
         <div class="onboard-step">
             <div class="step-num">2</div>
-            <div><b>ปรับน้ำหนัก</b> — เลื่อน slider เพื่อกำหนดว่าจะให้แผนก / ระดับงาน / ตำแหน่ง มีผลมากน้อยแค่ไหน</div>
+            <div><b>ปรับน้ำหนัก</b> — เลื่อน slider เพื่อกำหนดว่าจะให้แผนก / ระดับงาน / ตำแหน่ง มีผลมากน้อยแค่ไหน (ค่าเริ่มต้นใช้ได้เลย)</div>
         </div>
         <div class="onboard-step">
             <div class="step-num">3</div>
@@ -484,11 +474,11 @@ def main():
         </div>
         <div class="onboard-step">
             <div class="step-num">4</div>
-            <div><b>จำลองการลาออก</b> — Tab "What-if Simulation" เลือกพนักงานแล้วกด Run เพื่อดูว่าถ้าคนนี้ลาออกจะกระทบใครบ้าง</div>
+            <div><b>ดูคำแนะนำ HR</b> — Tab "💡 Recommendations" (tab 2) สรุปทันทีว่าต้องทำอะไรกับพนักงานแต่ละคน</div>
         </div>
         <div class="onboard-step">
             <div class="step-num">5</div>
-            <div><b>ดูคำแนะนำ</b> — Tab "💡 Recommendations" สรุปว่า HR ควรทำอะไรกับพนักงานแต่ละกลุ่ม</div>
+            <div><b>จำลองการลาออก</b> — Tab "What-if Simulation" เลือกพนักงานแล้วกด Run เพื่อดูว่าถ้าคนนี้ลาออกจะกระทบใครบ้าง</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -515,14 +505,14 @@ def main():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Tabs ──
+    # FIX 4: ย้าย Recommendations ขึ้นเป็น tab 2
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🌐 ภาพรวม Network",
+        "💡 Recommendations",
         "📊 Centrality Analysis",
         "🏘️ Community Detection",
         "⚡ What-if Simulation",
         "🏢 Department Health",
-        "💡 Recommendations",
     ])
 
     # ── Tab 1: Network Overview ──
@@ -542,245 +532,14 @@ def main():
             st.markdown("<span style='color:#8892a4'>วงกลมใหญ่ = score สูง</span>", unsafe_allow_html=True)
 
         with col_graph:
+            # FIX 3: เพิ่ม callout อธิบายวิธีอ่าน graph
+            st.info("💡 **วิธีอ่าน Graph** — วงกลมใหญ่ = คนสำคัญที่ HR ควรดูแลเป็นพิเศษ | เส้นเชื่อม = ความสัมพันธ์ในองค์กร | hover ที่วงกลมเพื่อดูรายละเอียดพนักงาน")
             G_sub = G.subgraph(list(G.nodes())[:show_n])
             m_sub = metric_df[metric_df["EmployeeNumber"].isin(list(G.nodes())[:show_n])]
             st.plotly_chart(draw_network(G_sub, m_sub, color_by, size_by), use_container_width=True)
 
-    # ── Tab 2: Centrality Analysis ──
+    # ── Tab 2: Recommendations (ย้ายขึ้นมาก่อน) ──
     with tab2:
-        st.markdown("### Top 20 — Betweenness Centrality")
-        st.caption("คนที่เป็น 'สะพาน' เชื่อมระหว่างแผนก — ถ้าลาออกการสื่อสารขาด")
-
-        top20 = metric_df.nlargest(20, "Betweenness")
-        fig_b = px.bar(top20, x="EmployeeNumber", y="Betweenness",
-                       color="Department", color_discrete_map=DEPT_COLORS,
-                       hover_data=["JobRole", "JobLevel", "OrgResilienceScore"],
-                       template="plotly_dark")
-        fig_b.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=320)
-        st.plotly_chart(fig_b, use_container_width=True)
-
-        col_a, col_b = st.columns(2)
-        with col_a:
-            fig_p = px.bar(metric_df.nlargest(15, "PageRank"), x="EmployeeNumber", y="PageRank",
-                           color="Department", color_discrete_map=DEPT_COLORS,
-                           title="Top 15 — PageRank", template="plotly_dark")
-            fig_p.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=280)
-            st.plotly_chart(fig_p, use_container_width=True)
-        with col_b:
-            fig_d = px.bar(metric_df.nlargest(15, "Degree"), x="EmployeeNumber", y="Degree",
-                           color="Department", color_discrete_map=DEPT_COLORS,
-                           title="Top 15 — Degree Centrality", template="plotly_dark")
-            fig_d.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=280)
-            st.plotly_chart(fig_d, use_container_width=True)
-
-        st.markdown("### Org Resilience Score — Top 30")
-        st.caption("สูตร: 0.35×Betweenness + 0.25×PageRank×10 + 0.20×Degree + 0.20×(1-Satisfaction)")
-        fig_s = px.scatter(metric_df.nlargest(30, "OrgResilienceScore"),
-                           x="Betweenness", y="OrgResilienceScore",
-                           size="Degree", color="Department", color_discrete_map=DEPT_COLORS,
-                           hover_data=["EmployeeNumber", "JobRole", "Attrition"],
-                           template="plotly_dark", height=360)
-        fig_s.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117")
-        st.plotly_chart(fig_s, use_container_width=True)
-
-    # ── Tab 3: Community Detection ──
-    with tab3:
-        st.markdown("### Community Detection — Louvain Algorithm")
-        st.caption("กลุ่มที่ทำงานด้วยกันจริงๆ อาจต่างจาก org chart")
-
-        if G.number_of_edges() > 0:
-            partition = community_louvain.best_partition(G)
-            comm_s    = pd.Series(partition).reset_index()
-            comm_s.columns = ["EmployeeNumber", "Community"]
-            mwc = metric_df.merge(comm_s, on="EmployeeNumber")
-
-            st.info(f"พบ **{mwc['Community'].nunique()} communities** จาก Louvain Algorithm")
-
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                cnt = mwc.groupby(["Community", "Department"]).size().reset_index(name="Count")
-                fig_c = px.bar(cnt, x="Community", y="Count", color="Department",
-                               color_discrete_map=DEPT_COLORS, barmode="stack",
-                               title="สมาชิกใน Community แต่ละกลุ่ม แยกตามแผนก",
-                               template="plotly_dark")
-                fig_c.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=360)
-                st.plotly_chart(fig_c, use_container_width=True)
-            with c2:
-                st.markdown("**Community Summary**")
-                cs = mwc.groupby("Community").agg(
-                    สมาชิก=("EmployeeNumber","count"),
-                    Avg_Score=("OrgResilienceScore","mean"),
-                    Attrition=("Attrition","mean"),
-                ).round(3).reset_index()
-                cs["Attrition"] = cs["Attrition"].apply(lambda x: f"{x:.0%}")
-                st.dataframe(cs, use_container_width=True, hide_index=True)
-        else:
-            st.warning("ไม่มี Edges เพียงพอ กรุณาปรับ Threshold ให้ต่ำลง")
-
-    # ── Tab 4: What-if Simulation ──
-    with tab4:
-        st.markdown("### ⚡ What-if Simulation")
-        st.markdown("จำลองว่า **ถ้าพนักงานคนนี้ลาออก** — องค์กรจะได้รับผลกระทบอย่างไร")
-
-        col_s1, col_s2 = st.columns([1, 2])
-        with col_s1:
-            top_risk = metric_df.nlargest(30, "OrgResilienceScore")[
-                ["EmployeeNumber","Department","JobRole","OrgResilienceScore"]
-            ].reset_index(drop=True)
-
-            selected_id = st.selectbox(
-                "เลือกพนักงาน (เรียงตาม Score สูงสุด)",
-                options=top_risk["EmployeeNumber"].tolist(),
-                format_func=lambda x: (
-                    f"#{x} — "
-                    f"{top_risk[top_risk.EmployeeNumber==x]['JobRole'].values[0]} | "
-                    f"{top_risk[top_risk.EmployeeNumber==x]['Department'].values[0]}"
-                )
-            )
-
-            sr = metric_df[metric_df["EmployeeNumber"] == selected_id].iloc[0]
-            st.markdown("---")
-            st.markdown("**ข้อมูลพนักงาน**")
-            st.markdown(f"- แผนก: **{sr['Department']}**")
-            st.markdown(f"- ตำแหน่ง: **{sr['JobRole']}** (Level {sr['JobLevel']})")
-            st.markdown(f"- อายุงาน: **{sr['YearsAtCompany']} ปี**")
-            st.markdown(f"- Betweenness: **{sr['Betweenness']:.4f}**")
-            st.markdown(f"- Org Resilience Score: **{sr['OrgResilienceScore']:.4f}**")
-
-            rec = get_recommendation(sr)
-            st.markdown(f"- ระดับความเสี่ยง: **{rec['icon']} {rec['level']}**")
-            st.markdown("")
-            run_btn = st.button("▶ Run Simulation", type="primary", use_container_width=True)
-
-        with col_s2:
-            if run_btn:
-                with st.spinner("กำลังจำลอง..."):
-                    result = run_simulation(G, metric_df, selected_id)
-
-                r1, r2, r3, r4 = st.columns(4)
-                r1.metric("Edges สูญเสีย",       f"{result['lost_edges']}")
-                r2.metric("พนักงานที่ได้รับผล",  f"{result['affected_count']} คน")
-                r3.metric("Network แตกเพิ่ม",    f"{result['frag_increase']} cluster")
-                r4.metric("Components หลัง",     f"{result['components_after']}")
-
-                st.markdown("---")
-                if result["frag_increase"] > 0:
-                    st.error(f"⚠️ **Critical** — Network แตกเป็น {result['components_after']} ส่วน การสื่อสารข้ามกลุ่มหยุดชะงักทันที")
-                elif result["lost_edges"] > 10:
-                    st.warning(f"🔶 **High Risk** — สูญเสีย {result['lost_edges']} connections กระทบ {result['affected_count']} คน")
-                else:
-                    st.success("✅ **Low Risk** — ผลกระทบอยู่ในระดับที่รับมือได้")
-
-                if not result["changes_df"].empty:
-                    st.markdown("#### พนักงานที่ได้รับผลกระทบมากที่สุด")
-                    st.dataframe(result["changes_df"].head(10), use_container_width=True, hide_index=True)
-
-                # Network Before/After
-                st.markdown("#### Network ก่อน vs หลัง")
-                nodes_viz = list(G.neighbors(selected_id)) + [selected_id]
-                G_before  = G.subgraph(nodes_viz[:60])
-                G_after   = G.copy(); G_after.remove_node(selected_id)
-                nbrs_after = [n for n in nodes_viz if n != selected_id]
-                G_after_s = G_after.subgraph(nbrs_after[:60])
-
-                vc1, vc2 = st.columns(2)
-                with vc1:
-                    st.caption("ก่อน")
-                    fig_bef = draw_network(G_before,
-                                           metric_df[metric_df["EmployeeNumber"].isin(nodes_viz)],
-                                           highlight_node=selected_id)
-                    fig_bef.update_layout(height=300)
-                    st.plotly_chart(fig_bef, use_container_width=True, key="sim_b")
-                with vc2:
-                    st.caption("หลัง")
-                    if nbrs_after:
-                        fig_aft = draw_network(G_after_s,
-                                               metric_df[metric_df["EmployeeNumber"].isin(nbrs_after)])
-                        fig_aft.update_layout(height=300)
-                        st.plotly_chart(fig_aft, use_container_width=True, key="sim_a")
-                    else:
-                        st.info("ไม่มี node เหลืออยู่ในกลุ่มนี้")
-            else:
-                st.info("เลือกพนักงานแล้วกด **▶ Run Simulation** เพื่อดูผลกระทบ")
-
-    # ── Tab 5: Department Health ──
-    with tab5:
-        st.markdown("### 🏢 Department Health Score")
-        st.caption("ประเมินสุขภาพของแต่ละแผนกจาก network metrics")
-
-        dept_h = metric_df.groupby("Department").agg(
-            Members         = ("EmployeeNumber", "count"),
-            Avg_Betweenness = ("Betweenness",    "mean"),
-            Avg_Clustering  = ("Clustering",     "mean"),
-            Avg_Satisfaction= ("Satisfaction",   "mean"),
-            Attrition_Rate  = ("Attrition",      "mean"),
-            Avg_Resilience  = ("OrgResilienceScore","mean"),
-        ).round(4).reset_index()
-
-        dept_h["HealthScore"] = (
-            dept_h["Avg_Satisfaction"] / 4 * 0.40
-            + dept_h["Avg_Clustering"]         * 0.30
-            - dept_h["Attrition_Rate"]         * 0.20
-            - dept_h["Avg_Resilience"]         * 0.10
-        ).round(4)
-
-        c1, c2 = st.columns([1, 2])
-        with c1:
-            disp = dept_h[["Department","Members","HealthScore","Attrition_Rate","Avg_Satisfaction"]].copy()
-            disp["Attrition_Rate"]  = disp["Attrition_Rate"].apply(lambda x: f"{x:.1%}")
-            disp["HealthScore"]     = disp["HealthScore"].apply(lambda x: f"{x:.3f}")
-            disp["Avg_Satisfaction"]= disp["Avg_Satisfaction"].apply(lambda x: f"{x:.2f}/4")
-            st.dataframe(disp, use_container_width=True, hide_index=True)
-
-        with c2:
-            fig_h = px.bar(dept_h, x="Department", y="HealthScore",
-                           color="Department", color_discrete_map=DEPT_COLORS,
-                           title="Department Health Score (สูง = สุขภาพดี)",
-                           template="plotly_dark", text="HealthScore")
-            fig_h.update_traces(texttemplate="%{text:.3f}", textposition="outside")
-            fig_h.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                                showlegend=False, height=300)
-            st.plotly_chart(fig_h, use_container_width=True)
-
-        # Radar Chart
-        st.markdown("### Radar — เปรียบเทียบแผนก")
-        cats = ["Avg_Betweenness","Avg_Clustering","Avg_Satisfaction","HealthScore"]
-        fig_r = go.Figure()
-        for _, row in dept_h.iterrows():
-            vals = [row[c] for c in cats]
-            fig_r.add_trace(go.Scatterpolar(
-                r=vals + [vals[0]], theta=cats + [cats[0]],
-                fill="toself", name=row["Department"],
-                line_color=DEPT_COLORS.get(row["Department"], "#8892a4")
-            ))
-        fig_r.update_layout(
-            polar=dict(bgcolor="#1a1f2e",
-                       radialaxis=dict(visible=True, color="#8892a4"),
-                       angularaxis=dict(color="#8892a4")),
-            paper_bgcolor="#0e1117", template="plotly_dark",
-            legend=dict(bgcolor="#1a1f2e"), height=400)
-        st.plotly_chart(fig_r, use_container_width=True)
-
-        # Formal vs Informal
-        st.markdown("---")
-        st.markdown("### Formal vs Informal Network")
-        st.caption("เปรียบเทียบ org chart (Formal) กับ community ที่เกิดขึ้นจริง (Informal)")
-        if G.number_of_edges() > 0:
-            partition = community_louvain.best_partition(G)
-            comm_s = pd.Series(partition).reset_index()
-            comm_s.columns = ["EmployeeNumber", "Community"]
-            merged = metric_df.merge(comm_s, on="EmployeeNumber")
-            cross  = pd.crosstab(merged["Department"], merged["Community"])
-            fig_hm = px.imshow(cross, color_continuous_scale="Blues",
-                               title="Heatmap: Department (Formal) vs Community (Informal)",
-                               template="plotly_dark")
-            fig_hm.update_layout(paper_bgcolor="#0e1117", height=320)
-            st.plotly_chart(fig_hm, use_container_width=True)
-        else:
-            st.warning("ไม่มี Edges เพียงพอ กรุณาปรับ Threshold ให้ต่ำลง")
-
-    # ── Tab 6: Recommendations ──
-    with tab6:
         st.markdown("### 💡 Business Recommendation")
         st.caption("คำแนะนำสำหรับ HR จากผลการวิเคราะห์ — เรียงตามความเสี่ยง")
 
@@ -836,6 +595,244 @@ def main():
                         use_container_width=True
                     )
 
+    # ── Tab 3: Centrality Analysis ──
+    with tab3:
+        st.markdown("### Top 20 — Betweenness Centrality")
+        st.caption("คนที่เป็น 'สะพาน' เชื่อมระหว่างแผนก — ถ้าลาออกการสื่อสารขาด")
+
+        top20 = metric_df.nlargest(20, "Betweenness")
+        fig_b = px.bar(top20, x="EmployeeNumber", y="Betweenness",
+                       color="Department", color_discrete_map=DEPT_COLORS,
+                       hover_data=["JobRole", "JobLevel", "OrgResilienceScore"],
+                       template="plotly_dark")
+        fig_b.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=320)
+        st.plotly_chart(fig_b, use_container_width=True)
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            fig_p = px.bar(metric_df.nlargest(15, "PageRank"), x="EmployeeNumber", y="PageRank",
+                           color="Department", color_discrete_map=DEPT_COLORS,
+                           title="Top 15 — PageRank", template="plotly_dark")
+            fig_p.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=280)
+            st.plotly_chart(fig_p, use_container_width=True)
+        with col_b:
+            fig_d = px.bar(metric_df.nlargest(15, "Degree"), x="EmployeeNumber", y="Degree",
+                           color="Department", color_discrete_map=DEPT_COLORS,
+                           title="Top 15 — Degree Centrality", template="plotly_dark")
+            fig_d.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=280)
+            st.plotly_chart(fig_d, use_container_width=True)
+
+        st.markdown("### Org Resilience Score — Top 30")
+        st.caption("สูตร: 0.35×Betweenness + 0.25×PageRank×10 + 0.20×Degree + 0.20×(1-Satisfaction)")
+        fig_s = px.scatter(metric_df.nlargest(30, "OrgResilienceScore"),
+                           x="Betweenness", y="OrgResilienceScore",
+                           size="Degree", color="Department", color_discrete_map=DEPT_COLORS,
+                           hover_data=["EmployeeNumber", "JobRole", "Attrition"],
+                           template="plotly_dark", height=360)
+        fig_s.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117")
+        st.plotly_chart(fig_s, use_container_width=True)
+
+    # ── Tab 4: Community Detection ──
+    with tab4:
+        st.markdown("### Community Detection — Louvain Algorithm")
+        st.caption("กลุ่มที่ทำงานด้วยกันจริงๆ อาจต่างจาก org chart")
+
+        if G.number_of_edges() > 0:
+            partition = community_louvain.best_partition(G)
+            comm_s    = pd.Series(partition).reset_index()
+            comm_s.columns = ["EmployeeNumber", "Community"]
+            mwc = metric_df.merge(comm_s, on="EmployeeNumber")
+
+            st.info(f"พบ **{mwc['Community'].nunique()} communities** จาก Louvain Algorithm")
+
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                cnt = mwc.groupby(["Community", "Department"]).size().reset_index(name="Count")
+                fig_c = px.bar(cnt, x="Community", y="Count", color="Department",
+                               color_discrete_map=DEPT_COLORS, barmode="stack",
+                               title="สมาชิกใน Community แต่ละกลุ่ม แยกตามแผนก",
+                               template="plotly_dark")
+                fig_c.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", height=360)
+                st.plotly_chart(fig_c, use_container_width=True)
+            with c2:
+                st.markdown("**Community Summary**")
+                cs = mwc.groupby("Community").agg(
+                    สมาชิก=("EmployeeNumber","count"),
+                    Avg_Score=("OrgResilienceScore","mean"),
+                    Attrition=("Attrition","mean"),
+                ).round(3).reset_index()
+                cs["Attrition"] = cs["Attrition"].apply(lambda x: f"{x:.0%}")
+                st.dataframe(cs, use_container_width=True, hide_index=True)
+        else:
+            st.warning("ไม่มี Edges เพียงพอ กรุณาปรับ Threshold ให้ต่ำลง")
+
+    # ── Tab 5: What-if Simulation ──
+    with tab5:
+        st.markdown("### ⚡ What-if Simulation")
+        st.markdown("จำลองว่า **ถ้าพนักงานคนนี้ลาออก** — องค์กรจะได้รับผลกระทบอย่างไร")
+
+        col_s1, col_s2 = st.columns([1, 2])
+        with col_s1:
+            top_risk = metric_df.nlargest(30, "OrgResilienceScore")[
+                ["EmployeeNumber","Department","JobRole","OrgResilienceScore"]
+            ].reset_index(drop=True)
+
+            # FIX 5: เพิ่ม score ใน dropdown label ให้ user รู้ว่าคนไหนสำคัญแค่ไหน
+            def format_employee(x):
+                row_data = top_risk[top_risk["EmployeeNumber"] == x]
+                if row_data.empty:
+                    return str(x)
+                role  = row_data["JobRole"].values[0]
+                dept  = row_data["Department"].values[0]
+                score = row_data["OrgResilienceScore"].values[0]
+                risk_icon = "🔴" if score >= 0.60 else "🟡" if score >= 0.40 else "🔵"
+                return f"#{x} — {role} | {dept} {risk_icon} Score: {score:.2f}"
+
+            selected_id = st.selectbox(
+                "เลือกพนักงาน (เรียงตาม Score สูงสุด)",
+                options=top_risk["EmployeeNumber"].tolist(),
+                format_func=format_employee,
+            )
+
+            sr = metric_df[metric_df["EmployeeNumber"] == selected_id].iloc[0]
+            st.markdown("---")
+            st.markdown("**ข้อมูลพนักงาน**")
+            st.markdown(f"- แผนก: **{sr['Department']}**")
+            st.markdown(f"- ตำแหน่ง: **{sr['JobRole']}** (Level {sr['JobLevel']})")
+            st.markdown(f"- อายุงาน: **{sr['YearsAtCompany']} ปี**")
+            st.markdown(f"- Betweenness: **{sr['Betweenness']:.4f}**")
+            st.markdown(f"- Org Resilience Score: **{sr['OrgResilienceScore']:.4f}**")
+
+            rec = get_recommendation(sr)
+            st.markdown(f"- ระดับความเสี่ยง: **{rec['icon']} {rec['level']}**")
+            st.markdown("")
+            run_btn = st.button("▶ Run Simulation", type="primary", use_container_width=True)
+
+        with col_s2:
+            if run_btn:
+                with st.spinner("กำลังจำลอง..."):
+                    result = run_simulation(G, metric_df, selected_id)
+
+                r1, r2, r3, r4 = st.columns(4)
+                r1.metric("Edges สูญเสีย",       f"{result['lost_edges']}")
+                r2.metric("พนักงานที่ได้รับผล",  f"{result['affected_count']} คน")
+                r3.metric("Network แตกเพิ่ม",    f"{result['frag_increase']} cluster")
+                r4.metric("Components หลัง",     f"{result['components_after']}")
+
+                st.markdown("---")
+                if result["frag_increase"] > 0:
+                    st.error(f"⚠️ **Critical** — Network แตกเป็น {result['components_after']} ส่วน การสื่อสารข้ามกลุ่มหยุดชะงักทันที")
+                elif result["lost_edges"] > 10:
+                    st.warning(f"🔶 **High Risk** — สูญเสีย {result['lost_edges']} connections กระทบ {result['affected_count']} คน")
+                else:
+                    st.success("✅ **Low Risk** — ผลกระทบอยู่ในระดับที่รับมือได้")
+
+                if not result["changes_df"].empty:
+                    st.markdown("#### พนักงานที่ได้รับผลกระทบมากที่สุด")
+                    st.dataframe(result["changes_df"].head(10), use_container_width=True, hide_index=True)
+
+                st.markdown("#### Network ก่อน vs หลัง")
+                nodes_viz = list(G.neighbors(selected_id)) + [selected_id]
+                G_before  = G.subgraph(nodes_viz[:60])
+                G_after   = G.copy(); G_after.remove_node(selected_id)
+                nbrs_after = [n for n in nodes_viz if n != selected_id]
+                G_after_s = G_after.subgraph(nbrs_after[:60])
+
+                vc1, vc2 = st.columns(2)
+                with vc1:
+                    st.caption("ก่อน")
+                    fig_bef = draw_network(G_before,
+                                           metric_df[metric_df["EmployeeNumber"].isin(nodes_viz)],
+                                           highlight_node=selected_id)
+                    fig_bef.update_layout(height=300)
+                    st.plotly_chart(fig_bef, use_container_width=True, key="sim_b")
+                with vc2:
+                    st.caption("หลัง")
+                    if nbrs_after:
+                        fig_aft = draw_network(G_after_s,
+                                               metric_df[metric_df["EmployeeNumber"].isin(nbrs_after)])
+                        fig_aft.update_layout(height=300)
+                        st.plotly_chart(fig_aft, use_container_width=True, key="sim_a")
+                    else:
+                        st.info("ไม่มี node เหลืออยู่ในกลุ่มนี้")
+            else:
+                st.info("เลือกพนักงานแล้วกด **▶ Run Simulation** เพื่อดูผลกระทบ")
+
+    # ── Tab 6: Department Health ──
+    with tab6:
+        st.markdown("### 🏢 Department Health Score")
+        st.caption("ประเมินสุขภาพของแต่ละแผนกจาก network metrics")
+
+        dept_h = metric_df.groupby("Department").agg(
+            Members         = ("EmployeeNumber", "count"),
+            Avg_Betweenness = ("Betweenness",    "mean"),
+            Avg_Clustering  = ("Clustering",     "mean"),
+            Avg_Satisfaction= ("Satisfaction",   "mean"),
+            Attrition_Rate  = ("Attrition",      "mean"),
+            Avg_Resilience  = ("OrgResilienceScore","mean"),
+        ).round(4).reset_index()
+
+        dept_h["HealthScore"] = (
+            dept_h["Avg_Satisfaction"] / 4 * 0.40
+            + dept_h["Avg_Clustering"]         * 0.30
+            - dept_h["Attrition_Rate"]         * 0.20
+            - dept_h["Avg_Resilience"]         * 0.10
+        ).round(4)
+
+        c1, c2 = st.columns([1, 2])
+        with c1:
+            disp = dept_h[["Department","Members","HealthScore","Attrition_Rate","Avg_Satisfaction"]].copy()
+            disp["Attrition_Rate"]  = disp["Attrition_Rate"].apply(lambda x: f"{x:.1%}")
+            disp["HealthScore"]     = disp["HealthScore"].apply(lambda x: f"{x:.3f}")
+            disp["Avg_Satisfaction"]= disp["Avg_Satisfaction"].apply(lambda x: f"{x:.2f}/4")
+            st.dataframe(disp, use_container_width=True, hide_index=True)
+
+        with c2:
+            fig_h = px.bar(dept_h, x="Department", y="HealthScore",
+                           color="Department", color_discrete_map=DEPT_COLORS,
+                           title="Department Health Score (สูง = สุขภาพดี)",
+                           template="plotly_dark", text="HealthScore")
+            fig_h.update_traces(texttemplate="%{text:.3f}", textposition="outside")
+            fig_h.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+                                showlegend=False, height=300)
+            st.plotly_chart(fig_h, use_container_width=True)
+
+        st.markdown("### Radar — เปรียบเทียบแผนก")
+        cats = ["Avg_Betweenness","Avg_Clustering","Avg_Satisfaction","HealthScore"]
+        fig_r = go.Figure()
+        for _, row in dept_h.iterrows():
+            vals = [row[c] for c in cats]
+            fig_r.add_trace(go.Scatterpolar(
+                r=vals + [vals[0]], theta=cats + [cats[0]],
+                fill="toself", name=row["Department"],
+                line_color=DEPT_COLORS.get(row["Department"], "#8892a4")
+            ))
+        fig_r.update_layout(
+            polar=dict(bgcolor="#1a1f2e",
+                       radialaxis=dict(visible=True, color="#8892a4"),
+                       angularaxis=dict(color="#8892a4")),
+            paper_bgcolor="#0e1117", template="plotly_dark",
+            legend=dict(bgcolor="#1a1f2e"), height=400)
+        st.plotly_chart(fig_r, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### Formal vs Informal Network")
+        st.caption("เปรียบเทียบ org chart (Formal) กับ community ที่เกิดขึ้นจริง (Informal)")
+        if G.number_of_edges() > 0:
+            partition = community_louvain.best_partition(G)
+            comm_s = pd.Series(partition).reset_index()
+            comm_s.columns = ["EmployeeNumber", "Community"]
+            merged = metric_df.merge(comm_s, on="EmployeeNumber")
+            cross  = pd.crosstab(merged["Department"], merged["Community"])
+            fig_hm = px.imshow(cross, color_continuous_scale="Blues",
+                               title="Heatmap: Department (Formal) vs Community (Informal)",
+                               template="plotly_dark")
+            fig_hm.update_layout(paper_bgcolor="#0e1117", height=320)
+            st.plotly_chart(fig_hm, use_container_width=True)
+        else:
+            st.warning("ไม่มี Edges เพียงพอ กรุณาปรับ Threshold ให้ต่ำลง")
+
 
 if __name__ == "__main__":
     main()
+ENDOFFILE
