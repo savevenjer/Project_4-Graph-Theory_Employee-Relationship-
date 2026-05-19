@@ -71,6 +71,7 @@ def compute_edge_weight(r1, r2):
 @st.cache_data(show_spinner="กำลังโหลด dataset...")
 def load_data(path="WA_Fn-UseC_-HR-Employee-Attrition.csv"):
     df = pd.read_csv(path)
+    df = df.sample(n=200, random_state=42)
     cols = ["EmployeeNumber","Department","JobRole","JobLevel",
             "YearsAtCompany","YearsWithCurrManager","JobSatisfaction",
             "Attrition","Age","Gender","MonthlyIncome","OverTime","PerformanceRating"]
