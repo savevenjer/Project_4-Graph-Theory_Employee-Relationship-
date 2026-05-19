@@ -7,6 +7,9 @@ import plotly.express as px
 from itertools import combinations
 import community as community_louvain
 import math
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets")
 
 st.set_page_config(
     page_title="ONA Dashboard",
@@ -37,16 +40,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def compute_edge_weight(r1, r2, weights):
-    score = 0.0
-    if r1["Department"] == r2["Department"]: score += weights["department"]
-    
-    score += max(0.0, 1.0 - abs(r1["JobLevel"] - r2["JobLevel"]) * 0.30) * weights["job_level"]
-    
-    if r1["JobRole"] == r2["JobRole"]: score += weights["job_role"]
-    
-    score += max(0.0, 1.0 - abs(r1["YearsAtCompany"] - r2["YearsAtCompany"]) * 0.10) * weights["tenure"]
-    
-    return round(score, 4)
+    total_weight = sum(weights.values())
+    if total_weight == 0:
+        return 0.0
+
+    score_dept = 1.0 if r1["Department"] == r2["Department"] else 0.0
+    score_role = 1.0 if r1["JobRole"] == r2["JobRole"] else 0.0
+    score_level = math.exp(-abs(r1["JobLevel"] - r2["JobLevel"]))
+    score_tenure = math.exp(-abs(r1["YearsAtCompany"] - r2["YearsAtCompany"]) * 0.1)
+
+    final_score = (
+        (score_dept * weights["department"]) +
+        (score_level * weights["job_level"]) +
+        (score_role * weights["job_role"]) +
+        (score_tenure * weights["tenure"])
+    ) / total_weight
+
+    return round(final_score, 4)
 
 @st.cache_data(show_spinner="กำลังโหลด dataset...")
 def load_default_data():
@@ -76,13 +86,13 @@ def build_graph_cached(df_json, threshold, weights):
     
     for _, row in df.iterrows():
         G.add_node(int(row["EmployeeNumber"]),
-                   department=row["Department"], 
+                   department=row["Department"],
                    job_role=row["JobRole"],
-                   job_level=int(row["JobLevel"]), 
+                   job_level=int(row["JobLevel"]),
                    years_company=int(row["YearsAtCompany"]),
-                   satisfaction=int(row["JobSatisfaction"]), 
+                   satisfaction=int(row["JobSatisfaction"]),
                    attrition=int(row["Attrition_flag"]),
-                   age=int(row["Age"]), 
+                   age=int(row["Age"]),
                    income=int(row["MonthlyIncome"]))
                    
     records = df.set_index("EmployeeNumber").to_dict("index")
@@ -103,7 +113,7 @@ def compute_metrics(df_json, threshold, weights):
 
     deg  = nx.degree_centrality(G)
     btw  = nx.betweenness_centrality(G, normalized=True)
-    pgr  = nx.pagerank(G, alpha=0.85)
+    pgr  = nx.pagerank(G, alpha=0.85) if G.number_of_edges() > 0 else {n: 0 for n in G.nodes()}
     
     try:
         clu = nx.clustering(G)
@@ -113,10 +123,10 @@ def compute_metrics(df_json, threshold, weights):
     metrics = []
     for node in G.nodes():
         attr = G.nodes[node]
-        sat_norm = (attr["satisfaction"] - 1) / 3  # 1–4 → 0–1
+        sat_norm = (attr["satisfaction"] - 1) / 3
         score = round(
-            0.35 * btw[node]
-            + 0.25 * pgr[node] * 10
+            0.35 * btw.get(node, 0)
+            + 0.25 * pgr.get(node, 0) * 10
             + 0.20 * deg.get(node, 0)
             + 0.20 * (1 - sat_norm), 4)
             
@@ -217,7 +227,6 @@ def draw_network(G, metric_df, color_by="Department", size_by="Betweenness", hig
         ))
     return fig
 
-
 def run_simulation(G, metric_df, remove_node):
     G2 = G.copy()
     G2.remove_node(remove_node)
@@ -249,20 +258,18 @@ def run_simulation(G, metric_df, remove_node):
         "changes_df": changes_df,
     }
 
-
-
 def main():
     with st.sidebar:
         st.header("⚙️ Network Settings")
         uploaded_file = st.file_uploader("อัปโหลดไฟล์ HR Data (CSV)", type="csv")
         st.divider()
-        st.markdown("**ปรับน้ำหนักความสัมพันธ์ (Edge Weights)**")
-        w_dept = st.slider("แผนกเดียวกัน", 0.0, 1.0, 0.50)
-        w_level = st.slider("ระดับงาน (Level) ใกล้กัน", 0.0, 1.0, 0.25)
-        w_role = st.slider("ตำแหน่ง (Role) เดียวกัน", 0.0, 1.0, 0.15)
-        w_tenure = st.slider("อายุงานใกล้เคียงกัน", 0.0, 1.0, 0.10)
+        st.markdown("**ปรับน้ำหนักความสำคัญ (Feature Weights)**")
+        w_dept = st.slider("น้ำหนักความสัมพันธ์ภายในแผนก (Intra-dept)", 0.0, 1.0, 0.50)
+        w_level = st.slider("อิทธิพลของลำดับชั้น (Hierarchy Influence)", 0.0, 1.0, 0.25)
+        w_role = st.slider("ความเชื่อมโยงสายอาชีพ (Role Affinity)", 0.0, 1.0, 0.15)
+        w_tenure = st.slider("ความผูกพันตามอายุงาน (Tenure Bonding)", 0.0, 1.0, 0.10)
         st.divider()
-        EDGE_THRESHOLD = st.slider("Threshold การเชื่อมต่อ", 0.1, 0.9, 0.40)
+        EDGE_THRESHOLD = st.slider("ความเข้มข้นของเครือข่าย (Network Density)", 0.1, 0.9, 0.40)
         
         WEIGHTS = {"department": w_dept, "job_level": w_level, "job_role": w_role, "tenure": w_tenure}
 
@@ -276,7 +283,7 @@ def main():
     df_json = df.to_json()
     metric_df, G = compute_metrics(df_json, EDGE_THRESHOLD, WEIGHTS)
 
-    st.markdown("Organizational Network Analysis")
+    st.markdown("## 🕸️ Organizational Network Analysis")
     st.caption("IBM HR Analytics · Graph Theory · Risk Assessment")
     st.divider()
 
@@ -312,13 +319,12 @@ def main():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-   
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        " ภาพรวม Network",
-        " Betweenness & Centrality",
-        " Community Detection",
-        " What-if Simulation",
-        " Department Health",
+        "🌐 ภาพรวม Network",
+        "📊 Betweenness & Centrality",
+        "🏘️ Community Detection",
+        "⚡ What-if Simulation",
+        "🏢 Department Health",
     ])
 
     with tab1:
@@ -378,7 +384,6 @@ def main():
                             template="plotly_dark", height=380)
         fig_rs.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117")
         st.plotly_chart(fig_rs, use_container_width=True)
-
 
     with tab3:
         st.markdown("### Community Detection — Louvain Algorithm")
@@ -468,14 +473,14 @@ def main():
 
                 if not result["changes_df"].empty:
                     st.markdown("#### พนักงานที่ Betweenness เปลี่ยนแปลงมากที่สุด")
-                    st.caption("คนที่ต้องรับภาระการเป็น 'สะพาน' แทนคนที่ลาออก")
                     st.dataframe(result["changes_df"].head(10), use_container_width=True, hide_index=True)
 
                 st.markdown("#### Network ก่อน vs หลัง")
                 nodes_viz = list(G.neighbors(selected_id)) + [selected_id]
                 nodes_viz = nodes_viz[:min(60, len(nodes_viz))]
                 G_before = G.subgraph(nodes_viz)
-                G_after  = G.copy(); G_after.remove_node(selected_id)
+                G_after  = G.copy()
+                G_after.remove_node(selected_id)
                 neighbors_after = [n for n in nodes_viz if n != selected_id]
                 G_after_sub = G_after.subgraph(neighbors_after)
 
@@ -484,12 +489,10 @@ def main():
 
                 vcol1, vcol2 = st.columns(2)
                 with vcol1:
-                    st.caption("ก่อน — มี node ที่เลือก")
                     fig_b = draw_network(G_before, m_viz, "Department", "Betweenness", highlight_node=selected_id)
                     fig_b.update_layout(height=320)
                     st.plotly_chart(fig_b, use_container_width=True, key="sim_before")
                 with vcol2:
-                    st.caption("หลัง — ลบ node ออกแล้ว")
                     if len(neighbors_after) > 0:
                         fig_a = draw_network(G_after_sub, m_after, "Department", "Betweenness")
                         fig_a.update_layout(height=320)
@@ -572,7 +575,6 @@ def main():
                                   template="plotly_dark")
             fig_cross.update_layout(paper_bgcolor="#0e1117", height=350)
             st.plotly_chart(fig_cross, use_container_width=True)
-            st.caption("ถ้า community ตรงกับแผนก = องค์กรทำงานตามโครงสร้าง | ถ้าไม่ตรง = มี informal network ที่ต่างออกไป")
         else:
             st.warning("ไม่มี Edges เพียงพอในการสร้าง Community กรุณาปรับค่า Threshold ให้ต่ำลง")
 
