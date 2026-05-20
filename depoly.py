@@ -13,7 +13,6 @@ import io
 from itertools import combinations
 from io import StringIO
 
-# ─── Page Config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="ONA Dashboard",
     page_icon="🕸️",
@@ -88,7 +87,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ─── Constants ──────────────────────────────────────────────────────────────────
 DEPT_COLORS = {
     "Sales":                  "#7F77DD",
     "Research & Development": "#1D9E75",
@@ -103,7 +101,6 @@ DEFAULT_WEIGHTS = {
 }
 
 
-# ─── Edge Weight ────────────────────────────────────────────────────────────────
 def compute_edge_weight(r1: dict, r2: dict, weights: dict) -> float:
     total = sum(weights.values()) or 1.0
 
@@ -120,7 +117,6 @@ def compute_edge_weight(r1: dict, r2: dict, weights: dict) -> float:
     ) / total, 4)
 
 
-# ─── Data Loaders ────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner="กำลังสร้างข้อมูลตัวอย่าง...")
 def load_default_data() -> pd.DataFrame:
     rng = np.random.default_rng(42)
@@ -150,7 +146,6 @@ def load_default_data() -> pd.DataFrame:
     return df
 
 
-# ─── Graph & Metrics ─────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner="กำลังสร้าง Network Graph...")
 def build_graph_cached(df_json: str, threshold: float, weights: dict):
     df = pd.read_json(StringIO(df_json))
@@ -215,14 +210,12 @@ def compute_metrics(df_json: str, threshold: float, weights: dict):
     return pd.DataFrame(rows), G
 
 
-# ─── Network Visualization ───────────────────────────────────────────────────────
 def draw_network(G, metric_df, color_by="Department", size_by="Betweenness", highlight_node=None):
     if G.number_of_nodes() == 0:
         return go.Figure()
 
     pos = nx.spring_layout(G, seed=42, k=1.5 / math.sqrt(max(G.number_of_nodes(), 1)))
 
-    # Edges
     ex, ey = [], []
     for u, v in G.edges():
         x0, y0 = pos[u]; x1, y1 = pos[v]
@@ -230,7 +223,6 @@ def draw_network(G, metric_df, color_by="Department", size_by="Betweenness", hig
     edge_trace = go.Scatter(x=ex, y=ey, mode="lines",
                             line=dict(width=0.4, color="#2d3548"), hoverinfo="none")
 
-    # Nodes
     nx_, ny_, colors, sizes, texts, hovers = [], [], [], [], [], []
     m = metric_df.set_index("EmployeeNumber")
     max_s = m[size_by].max() or 1
@@ -245,16 +237,14 @@ def draw_network(G, metric_df, color_by="Department", size_by="Betweenness", hig
         nx_.append(x); ny_.append(y)
         texts.append(str(node))
 
-        # color
         if color_by == "Department":
             colors.append(DEPT_COLORS.get(dept, "#8892a4"))
         elif color_by == "Attrition":
             colors.append("#ef4444" if row["Attrition"] == 1 else "#22c55e")
-        else:  # OrgResilienceScore
+        else:  
             s = row["OrgResilienceScore"]
             colors.append(f"rgb({int(255*s)},{int(255*(1-s))},80)")
 
-        # size
         raw = row[size_by]
         sz  = 10 + (raw / max_s) * 30
         sizes.append(sz * 1.8 if highlight_node and node == highlight_node else sz)
@@ -286,7 +276,6 @@ def draw_network(G, metric_df, color_by="Department", size_by="Betweenness", hig
         ))
 
 
-# ─── Simulation ──────────────────────────────────────────────────────────────────
 def run_simulation(G, metric_df, remove_node: int) -> dict:
     G2 = G.copy()
     G2.remove_node(remove_node)
@@ -310,7 +299,6 @@ def run_simulation(G, metric_df, remove_node: int) -> dict:
     }
 
 
-# ─── Business Recommendation ─────────────────────────────────────────────────────
 def get_recommendation(row: pd.Series) -> dict:
     score = row["OrgResilienceScore"]
 
@@ -348,7 +336,6 @@ def get_recommendation(row: pd.Series) -> dict:
         }
 
 
-# ─── Export PDF ──────────────────────────────────────────────────────────────────
 def export_pdf(metric_df: pd.DataFrame) -> bytes:
     try:
         from reportlab.lib.pagesizes import A4
@@ -416,9 +403,7 @@ def export_pdf(metric_df: pd.DataFrame) -> bytes:
         return csv_buf.getvalue().encode("utf-8")
 
 
-# ─── Main App ────────────────────────────────────────────────────────────────────
 def main():
-    # ── Sidebar ──
     with st.sidebar:
         st.header("⚙️ ตั้งค่า Network")
 
@@ -442,7 +427,6 @@ def main():
         WEIGHTS = {"department": w_dept, "job_level": w_level,
                    "job_role": w_role, "tenure": w_tenure}
 
-    # ── Load Data ──
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
         if "Attrition_flag" not in df.columns and "Attrition" in df.columns:
@@ -453,11 +437,9 @@ def main():
     df_json   = df.to_json()
     metric_df, G = compute_metrics(df_json, threshold, WEIGHTS)
 
-    # ── Header ──
     st.markdown("## 🕸️ Organizational Network Analysis")
     st.caption("IBM HR Analytics · Graph Theory · Risk Assessment")
 
-    # FIX 1: เปิด expander ทิ้งไว้เลยตอน first load (expanded=True)
     with st.expander("📖 วิธีใช้งาน Dashboard — คลิกเพื่อปิด", expanded=True):
         st.markdown("""
         <div class="onboard-step">
@@ -484,7 +466,6 @@ def main():
 
     st.divider()
 
-    # ── Summary Metrics ──
     high_risk  = metric_df[metric_df["OrgResilienceScore"] > 0.50]
     key_person = metric_df.loc[metric_df["Betweenness"].idxmax(), "EmployeeNumber"] if not metric_df.empty else "N/A"
 
@@ -505,7 +486,6 @@ def main():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # FIX 4: ย้าย Recommendations ขึ้นเป็น tab 2
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🌐 ภาพรวม Network",
         "💡 Recommendations",
@@ -515,7 +495,6 @@ def main():
         "🏢 Department Health",
     ])
 
-    # ── Tab 1: Network Overview ──
     with tab1:
         col_ctrl, col_graph = st.columns([1, 3])
         with col_ctrl:
@@ -532,13 +511,11 @@ def main():
             st.markdown("<span style='color:#8892a4'>วงกลมใหญ่ = score สูง</span>", unsafe_allow_html=True)
 
         with col_graph:
-            # FIX 3: เพิ่ม callout อธิบายวิธีอ่าน graph
             st.info("💡 **วิธีอ่าน Graph** — วงกลมใหญ่ = คนสำคัญที่ HR ควรดูแลเป็นพิเศษ | เส้นเชื่อม = ความสัมพันธ์ในองค์กร | hover ที่วงกลมเพื่อดูรายละเอียดพนักงาน")
             G_sub = G.subgraph(list(G.nodes())[:show_n])
             m_sub = metric_df[metric_df["EmployeeNumber"].isin(list(G.nodes())[:show_n])]
             st.plotly_chart(draw_network(G_sub, m_sub, color_by, size_by), use_container_width=True)
 
-    # ── Tab 2: Recommendations (ย้ายขึ้นมาก่อน) ──
     with tab2:
         st.markdown("### 💡 Business Recommendation")
         st.caption("คำแนะนำสำหรับ HR จากผลการวิเคราะห์ — เรียงตามความเสี่ยง")
@@ -566,7 +543,6 @@ def main():
 
         st.markdown("---")
 
-        # Export
         st.markdown("### 📥 Export รายงาน")
         col_e1, col_e2 = st.columns(2)
 
@@ -595,7 +571,6 @@ def main():
                         use_container_width=True
                     )
 
-    # ── Tab 3: Centrality Analysis ──
     with tab3:
         st.markdown("### Top 20 — Betweenness Centrality")
         st.caption("คนที่เป็น 'สะพาน' เชื่อมระหว่างแผนก — ถ้าลาออกการสื่อสารขาด")
@@ -632,7 +607,6 @@ def main():
         fig_s.update_layout(paper_bgcolor="#0e1117", plot_bgcolor="#0e1117")
         st.plotly_chart(fig_s, use_container_width=True)
 
-    # ── Tab 4: Community Detection ──
     with tab4:
         st.markdown("### Community Detection — Louvain Algorithm")
         st.caption("กลุ่มที่ทำงานด้วยกันจริงๆ อาจต่างจาก org chart")
@@ -666,7 +640,6 @@ def main():
         else:
             st.warning("ไม่มี Edges เพียงพอ กรุณาปรับ Threshold ให้ต่ำลง")
 
-    # ── Tab 5: What-if Simulation ──
     with tab5:
         st.markdown("### ⚡ What-if Simulation")
         st.markdown("จำลองว่า **ถ้าพนักงานคนนี้ลาออก** — องค์กรจะได้รับผลกระทบอย่างไร")
@@ -677,7 +650,6 @@ def main():
                 ["EmployeeNumber","Department","JobRole","OrgResilienceScore"]
             ].reset_index(drop=True)
 
-            # FIX 5: เพิ่ม score ใน dropdown label ให้ user รู้ว่าคนไหนสำคัญแค่ไหน
             def format_employee(x):
                 row_data = top_risk[top_risk["EmployeeNumber"] == x]
                 if row_data.empty:
